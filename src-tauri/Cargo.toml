@@ -1,0 +1,18 @@
+[package]
+name = "blink-reminder"
+version = "0.1.0"
+description = "Tray app that reminds you to blink and rest your eyes every 20 minutes"
+edition = "2021"
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+tauri = { version = "2", features = ["tray-icon", "image-png"] }
+
+[profile.release]
+codegen-units = 1
+lto = true
+opt-level = "s"
+panic = "abort"
+strip = true

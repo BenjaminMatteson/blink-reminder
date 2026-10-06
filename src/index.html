@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Blink Reminder</title>
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      background: transparent;
+      overflow: hidden;
+      font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+      user-select: none;
+      cursor: default;
+    }
+    .card {
+      box-sizing: border-box;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      padding: 18px 22px;
+      border-radius: 18px;
+      background: rgba(22, 52, 58, 0.94);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #f1f7f6;
+    }
+    .eye { font-size: 46px; line-height: 1; animation: blink 4s infinite; }
+    @keyframes blink {
+      0%, 44%, 50%, 100% { transform: scaleY(1); }
+      47% { transform: scaleY(0.1); }
+    }
+    h1 { margin: 0 0 4px; font-size: 21px; font-weight: 600; }
+    p { margin: 0; font-size: 14px; color: #c3d9d6; }
+    .count {
+      margin-left: auto;
+      font-size: 34px;
+      font-weight: 300;
+      font-variant-numeric: tabular-nums;
+      min-width: 2ch;
+      text-align: right;
+    }
+    .hint { font-size: 11px; color: #85a7a2; margin-top: 6px; }
+  </style>
+</head>
+<body>
+  <div class="card" id="card" title="Click to dismiss">
+    <div class="eye">👁️</div>
+    <div>
+      <h1>Time to blink</h1>
+      <p>Look at something 20 feet away for 20 seconds.</p>
+      <div class="hint">Click to dismiss</div>
+    </div>
+    <div class="count" id="count">20</div>
+  </div>
+  <script>
+    const { listen } = window.__TAURI__.event;
+    const { invoke } = window.__TAURI__.core;
+    const countEl = document.getElementById('count');
+    let tick;
+
+    listen('blink', (e) => {
+      let left = e.payload ?? 20;
+      countEl.textContent = left;
+      clearInterval(tick);
+      tick = setInterval(() => {
+        left -= 1;
+        countEl.textContent = Math.max(left, 0);
+        if (left <= 0) clearInterval(tick);
+      }, 1000);
+    });
+
+    document.getElementById('card').addEventListener('click', () => {
+      clearInterval(tick);
+      invoke('dismiss');
+    });
+  </script>
+</body>
+</html>
