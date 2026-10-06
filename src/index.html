@@ -54,21 +54,14 @@
     <div class="count" id="count">20</div>
   </div>
   <script>
-    const { listen } = window.__TAURI__.event;
     const { invoke } = window.__TAURI__.core;
     const countEl = document.getElementById('count');
-    let tick;
-
-    listen('blink', (e) => {
-      let left = e.payload ?? 20;
-      countEl.textContent = left;
-      clearInterval(tick);
-      tick = setInterval(() => {
-        left -= 1;
-        countEl.textContent = Math.max(left, 0);
-        if (left <= 0) clearInterval(tick);
-      }, 1000);
-    });
+    let left = 20;
+    const tick = setInterval(() => {
+      left -= 1;
+      countEl.textContent = Math.max(left, 0);
+      if (left <= 0) clearInterval(tick);
+    }, 1000);
 
     document.getElementById('card').addEventListener('click', () => {
       clearInterval(tick);

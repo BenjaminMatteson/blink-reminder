@@ -1,6 +1,6 @@
 [package]
 name = "blink-reminder"
-version = "0.1.0"
+version = "0.1.1"
 description = "Tray app that reminds you to blink and rest your eyes every 20 minutes"
 edition = "2021"
 

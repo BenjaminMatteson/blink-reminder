@@ -1,7 +1,7 @@
 # Blink Reminder
 
 A tiny tray app for eye-strain relief. Every 20 minutes a small always-on-top
-card appears at the top of your screen reminding you to blink and look at
+card appears in the middle of your screen reminding you to blink and look at
 something 20 feet away for 20 seconds (the 20-20-20 rule). It counts down and
 hides itself after 20 seconds, or you can click it to dismiss it early.
 

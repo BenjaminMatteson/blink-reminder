@@ -1,29 +1,14 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Blink Reminder",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "net.matteson.blinkreminder",
   "build": {
     "frontendDist": "../src"
   },
   "app": {
     "withGlobalTauri": true,
-    "windows": [
-      {
-        "label": "reminder",
-        "title": "Blink Reminder",
-        "width": 420,
-        "height": 150,
-        "visible": false,
-        "focus": false,
-        "decorations": false,
-        "transparent": true,
-        "shadow": false,
-        "alwaysOnTop": true,
-        "skipTaskbar": true,
-        "resizable": false
-      }
-    ],
+    "windows": [],
     "security": {
       "csp": null
     }

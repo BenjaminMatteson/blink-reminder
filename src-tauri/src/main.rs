@@ -8,59 +8,71 @@ use std::time::{Duration, Instant};
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
-use tauri::{AppHandle, Emitter, Manager, PhysicalPosition, RunEvent, State};
+use tauri::{AppHandle, Manager, RunEvent, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 /// How often the reminder appears (the 20-20-20 rule).
 const INTERVAL: Duration = Duration::from_secs(20 * 60);
 /// How long the reminder stays on screen before it hides itself.
 const SHOW_FOR: Duration = Duration::from_secs(20);
-/// Gap between the overlay and the top of the screen, in logical pixels.
-const TOP_MARGIN: f64 = 40.0;
 
 struct Timer {
     next_due: Mutex<Instant>,
-    /// Bumped each time the overlay is shown, so a stale auto-hide does not
-    /// hide a newer reminder.
+    /// Numbers each reminder window so every one gets its own label.
     shown: AtomicU64,
 }
 
+const OVERLAY_WIDTH: f64 = 420.0;
+const OVERLAY_HEIGHT: f64 = 150.0;
+
 #[tauri::command]
-fn dismiss(app: AppHandle, timer: State<'_, Arc<Timer>>) {
-    timer.shown.fetch_add(1, Ordering::SeqCst);
-    if let Some(window) = app.get_webview_window("reminder") {
-        let _ = window.hide();
-    }
+fn dismiss(window: WebviewWindow) {
+    let _ = window.destroy();
 }
 
-fn show_reminder(app: &AppHandle, timer: &Arc<Timer>) {
-    let Some(window) = app.get_webview_window("reminder") else {
-        return;
-    };
-
-    // Centre the overlay near the top of the screen the user is most likely on.
-    if let Ok(Some(monitor)) = window.primary_monitor() {
-        let scale = monitor.scale_factor();
-        let (mon_pos, mon_size) = (monitor.position(), monitor.size());
-        if let Ok(win_size) = window.outer_size() {
-            let x = mon_pos.x + (mon_size.width as i32 - win_size.width as i32) / 2;
-            let y = mon_pos.y + (TOP_MARGIN * scale) as i32;
-            let _ = window.set_position(PhysicalPosition::new(x, y));
+/// Creates a fresh overlay window for each reminder and destroys it when it is
+/// done, rather than keeping one hidden webview alive between reminders. A
+/// long-lived hidden window could be lost (for example closed with Alt+F4),
+/// after which no reminder would ever show again. Must not be called on the
+/// main thread: building a webview there deadlocks on Windows.
+fn show_reminder(app: &AppHandle, timer: &Timer) {
+    // Only one reminder on screen at a time.
+    for (label, window) in app.webview_windows() {
+        if label.starts_with("reminder") {
+            let _ = window.destroy();
         }
     }
 
-    let id = timer.shown.fetch_add(1, Ordering::SeqCst) + 1;
-    let _ = window.set_always_on_top(true);
-    let _ = window.show();
-    let _ = window.emit("blink", SHOW_FOR.as_secs());
+    // Centre the overlay on the primary screen.
+    let (mut x, mut y) = (100.0, 100.0);
+    if let Ok(Some(monitor)) = app.primary_monitor() {
+        let scale = monitor.scale_factor();
+        let (pos, size) = (monitor.position(), monitor.size());
+        x = pos.x as f64 / scale + (size.width as f64 / scale - OVERLAY_WIDTH) / 2.0;
+        y = pos.y as f64 / scale + (size.height as f64 / scale - OVERLAY_HEIGHT) / 2.0;
+    }
+
+    let label = format!("reminder-{}", timer.shown.fetch_add(1, Ordering::SeqCst));
+    let built = WebviewWindowBuilder::new(app, &label, WebviewUrl::App("index.html".into()))
+        .title("Blink Reminder")
+        .inner_size(OVERLAY_WIDTH, OVERLAY_HEIGHT)
+        .position(x, y)
+        .decorations(false)
+        .transparent(true)
+        .shadow(false)
+        .always_on_top(true)
+        .skip_taskbar(true)
+        .resizable(false)
+        .focused(false)
+        .build();
+    if built.is_err() {
+        return;
+    }
 
     let app = app.clone();
-    let timer = timer.clone();
     thread::spawn(move || {
         thread::sleep(SHOW_FOR);
-        if timer.shown.load(Ordering::SeqCst) == id {
-            if let Some(window) = app.get_webview_window("reminder") {
-                let _ = window.hide();
-            }
+        if let Some(window) = app.get_webview_window(&label) {
+            let _ = window.destroy();
         }
     });
 }
@@ -133,8 +145,7 @@ fn main() {
                         }
                     };
                     if due {
-                        let (h, t) = (handle.clone(), timer.clone());
-                        let _ = handle.run_on_main_thread(move || show_reminder(&h, &t));
+                        show_reminder(&handle, &timer);
                     }
                     let remaining = timer.next_due.lock().unwrap().saturating_duration_since(now);
                     let minute = (remaining.as_secs() + 59) / 60;
